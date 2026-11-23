@@ -11,7 +11,8 @@ INJECTION = re.compile(
     r"|new instructions?:|<\s*/?\s*(system|instructions?)\s*>|\[\s*system\s*\]|#{3,}\s*system"
     r"|(admin|god|sudo|root) mode|override (the |your )?(rules|price|system)"
     r"|(set|change|update|edit) (the |its |all )?(prices?|stock)\b.{0,30}\b(to|=)"
-    r"|(other|another|all) (customers?|users?)'?s? (orders?|data|addresses|details|carts?)|database|\bsql\b|api key",
+    r"|(other|another|all|every) (other )?(customers?|users?)'?s? (orders?|data|addresses|details|carts?|names?)"
+    r"|(drop|delete|truncate) table|(show|give|tell|print|reveal) (me )?(your|the) api key",
     re.I,
 )
 

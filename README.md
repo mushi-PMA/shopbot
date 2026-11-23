@@ -6,7 +6,8 @@ ShopBot gives a small shop an online storefront with a sales agent that sells fo
 **Malik Brothers**, a family-run lifestyle shop in Sargodha. Customers browse the catalogue and chat with the
 assistant in English or Roman Urdu: it finds products, checks live stock, fills the cart, places and tracks orders,
 answers policy questions and remembers each customer between visits. The seller runs the shop from an admin
-dashboard: orders, stock, customers, conversations and what the agent costs.
+dashboard: uploads the catalogue (CSV or one product at a time), manages orders and stock, and sees customers,
+conversations and what the agent costs.
 
 ![demo](docs/demo.gif)
 
@@ -64,6 +65,9 @@ long-term memory and recent orders, a short-term window that sends only the late
 | `get_store_policy` | Shipping, returns, payment, warranty, sizes, contact, coupons | no |
 | `remember_customer_fact` | Saves a lasting fact about the customer to long-term memory | memory |
 
+The agent also recommends and upsells: after adding an item it suggests at most one matching product, and it saves
+personal facts (sizes, city, likes) to long-term memory without being asked.
+
 ### Safety
 
 * **Prompt injection and off-topic requests** are refused by `safety_guard` before the model runs, so they cost
@@ -87,7 +91,7 @@ long-term memory and recent orders, a short-term window that sends only the late
 **How users are kept separate.** The checkpoint key is `user_id::thread_id`, so even a guessed `thread_id` opens
 an empty conversation for another user. The store namespace, the cart, the orders and every SQL query use the
 `user_id` from the request body, which tools read from the runtime context; the model has no parameter for it.
-Nothing is kept in server memory, so a restart loses nothing.
+Nothing is kept in server memory, so a restart loses nothing. Each seller gets their own deployment and database, so one shop's catalogue, customers and orders never mix with another's.
 
 ## Agent API
 
@@ -99,7 +103,7 @@ GET /health  → ok
 
 Bad input (missing fields, empty or over-long message, non-JSON) returns HTTP 400 in the same JSON shape. If the
 model fails, the API still answers in the same shape with an apology and repairs the thread so the next message works.
-The website also uses `GET /products`, `GET /customer/{user_id}` and `GET /thread/{user_id}/{thread_id}`, and the
+The dashboard can upload a catalogue with `POST /admin/catalog` (CSV) or `POST /admin/products`. The website also uses `GET /products`, `GET /customer/{user_id}` and `GET /thread/{user_id}/{thread_id}`, and the
 dashboard uses `/admin/*` with the `X-Admin-Token` header.
 
 ## Benchmark
@@ -114,8 +118,8 @@ the 10 cases in [tests.json](tests.json) plus 5 common attack tests, each run tw
 | Our 10 test cases | **20 / 20 passed** (2 runs) |
 | 5 attack tests (override, prompt extraction, fake admin, other customers' data, skip confirmation) | **10 / 10 passed** (2 runs) |
 | Overall pass rate | **100 %** (30 / 30) |
-| Reply time, median / p95 (measured from Pakistan, includes network) | 1.9 s / 3.5 s |
-| Tokens per message (in / out) | 3,457 / 128 |
+| Reply time, median / p95 (measured from Pakistan, includes network) | 1.8 s / 2.5 s |
+| Tokens per message (in / out) | 3,766 / 126 |
 | Cost per message (Claude Haiku 5.5) | about **$0.0004** |
 | Cost of the whole benchmark (46 messages) | $0.019 |
 | Injection and off-topic messages | blocked in code before the model, 0 tokens |

@@ -5,7 +5,7 @@ import pytest
 from langchain.messages import AIMessage, HumanMessage, ToolMessage
 
 from shopbot.guards import check_message
-from shopbot.tools import YES, confirmed_by_customer
+from shopbot.tools import confirmed_by_customer, is_yes
 
 
 @pytest.mark.parametrize("text", [
@@ -39,6 +39,8 @@ def test_off_topic_is_blocked(text):
     "Place my order, cash on delivery please",
     "What did I order last week?",
     "Mujhe shawl chahiye maroon color mein",
+    "Is my address saved in your database?",
+    "Can you act as my personal shopper?",
 ])
 def test_shopping_messages_pass(text):
     assert check_message(text) is None
@@ -60,7 +62,15 @@ def test_order_needs_a_question_then_a_yes():
 
 
 def test_yes_words():
-    for word in ["yes", "Yes please", "ok go ahead", "confirm", "haan", "ji"]:
-        assert YES.search(word)
-    for word in ["no", "wait", "not yet", "change the address"]:
-        assert not YES.search(word)
+    for word in ["yes", "Yes please", "ok", "okay go ahead", "I confirm", "Please go ahead and place it", "haan",
+                 "Sure, do it", "yes, confirmed"]:
+        assert is_yes(word), word
+    for word in ["no", "wait", "not yet", "change the address", "yes but change the address", "don't place it"]:
+        assert not is_yes(word), word
+
+
+def test_old_confirmation_does_not_count():
+    asked = ToolMessage("CONFIRMATION NEEDED. Nothing has been ordered yet.", tool_call_id="1", name="place_order")
+    stale = [HumanMessage("order"), asked, AIMessage("Confirm?"), HumanMessage("what about shawls?"),
+             AIMessage("We have shawls."), HumanMessage("yes")]
+    assert not confirmed_by_customer(runtime_with(stale), "place_order")

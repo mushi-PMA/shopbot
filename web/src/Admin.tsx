@@ -165,7 +165,62 @@ function ProductsTab({ token }: { token: string }) {
         </table>
       )}
       <p className="muted small">Changes apply to the assistant immediately: it reads price and stock live through its tools.</p>
+      <CatalogUpload token={token} onDone={reload} />
     </>
+  )
+}
+
+const SAMPLE_CSV = 'name,category,price,stock,description,sizes,colors,tags\nMultani Khussa,Footwear,2600,12,Hand-stitched khussa with mirror work,"37,38,39,40",Gold,women eid'
+
+function CatalogUpload({ token, onDone }: { token: string; onDone: () => void }) {
+  const [csv, setCsv] = useState('')
+  const [form, setForm] = useState({ name: '', category: '', price: '', stock: '', sizes: '', colors: '', description: '' })
+  const [result, setResult] = useState('')
+  async function upload() {
+    try {
+      const r = await post<{ added: string[]; updated: string[]; errors: string[] }>('/admin/catalog', { csv }, token)
+      setResult(`Added ${r.added.length}, updated ${r.updated.length}${r.errors.length ? `. Skipped: ${r.errors.join('; ')}` : '.'}`)
+      setCsv('')
+      onDone()
+    } catch (e) { setResult(e instanceof Error ? e.message : 'Upload failed') }
+  }
+  async function addOne(e: React.FormEvent) {
+    e.preventDefault()
+    try {
+      const r = await post<{ id: string; result: string }>('/admin/products', form, token)
+      setResult(`${form.name} ${r.result} as ${r.id}.`)
+      setForm({ name: '', category: '', price: '', stock: '', sizes: '', colors: '', description: '' })
+      onDone()
+    } catch (err) { setResult(err instanceof Error ? err.message : 'Could not add the product') }
+  }
+  const field = (key: keyof typeof form, label: string, type = 'text') => (
+    <label className="field">{label}<input type={type} value={form[key]} required={['name', 'category', 'price', 'stock'].includes(key)}
+      onChange={(e) => setForm({ ...form, [key]: e.target.value })} /></label>
+  )
+  return (
+    <section className="panels">
+      <form className="panel" onSubmit={addOne}>
+        <h2>Add a product</h2>
+        <div className="form-grid">
+          {field('name', 'Name')}{field('category', 'Category')}{field('price', 'Price (Rs)', 'number')}{field('stock', 'Stock', 'number')}
+          {field('sizes', 'Sizes (comma separated)')}{field('colors', 'Colours (comma separated)')}
+        </div>
+        {field('description', 'Description')}
+        <button className="primary">Add product</button>
+      </form>
+      <div className="panel">
+        <h2>Upload your catalogue (CSV)</h2>
+        <p className="muted small">Columns: name, category, price, stock, description, sizes, colors, tags. Rows with an existing name are updated.</p>
+        <input type="file" accept=".csv,text/csv" aria-label="Choose a CSV file"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) void f.text().then(setCsv) }} />
+        <textarea className="csv" rows={5} value={csv} onChange={(e) => setCsv(e.target.value)} placeholder={SAMPLE_CSV} aria-label="Catalogue CSV" />
+        <div className="row-actions">
+          <button className="ghost small" type="button" onClick={() => setCsv(SAMPLE_CSV)}>Use sample</button>
+          <button className="primary" type="button" disabled={!csv.trim()} onClick={() => void upload()}>Upload catalogue</button>
+        </div>
+      </div>
+      {result && <p className="notice" role="status">{result}</p>}
+    </section>
   )
 }
 

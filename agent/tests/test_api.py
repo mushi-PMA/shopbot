@@ -44,3 +44,17 @@ def test_guard_answers_without_tokens(client):
 
 def test_admin_needs_token(client):
     assert client.get("/admin/overview").status_code == 401
+    assert client.post("/admin/catalog", json={"csv": "name,category,price,stock\nX,Home,1,1"}).status_code == 401
+
+
+def test_catalog_upload_adds_then_updates(client):
+    from shopbot import db
+    headers = {"X-Admin-Token": os.environ.get("ADMIN_TOKEN", "")}
+    csv_text = 'name,category,price,stock,sizes\nPytest Test Scarf,Clothing,999,3,"S,M"\n,Clothing,10,1,\n'
+    try:
+        first = client.post("/admin/catalog", json={"csv": csv_text}, headers=headers).json()
+        assert len(first["added"]) == 1 and len(first["errors"]) == 1
+        again = client.post("/admin/catalog", json={"csv": csv_text}, headers=headers).json()
+        assert again["updated"] == first["added"]
+    finally:
+        db.query("DELETE FROM products WHERE name = 'Pytest Test Scarf'")

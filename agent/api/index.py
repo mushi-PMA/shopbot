@@ -173,6 +173,68 @@ async def admin_update_product(product_id: str, request: Request, x_admin_token:
     return row
 
 
+PRODUCT_FIELDS = ("name", "category", "price", "stock", "description", "sizes", "colors", "tags")
+
+
+def save_product(row: dict) -> tuple[str, str]:
+    """Insert or update one catalogue row. Returns (product id, 'added' or 'updated'). Raises ValueError if invalid."""
+    name = str(row.get("name") or "").strip()[:120]
+    category = str(row.get("category") or "").strip().title()[:40]
+    try:
+        price, stock = int(float(row.get("price") or 0)), int(float(row.get("stock") or 0))
+    except (TypeError, ValueError):
+        raise ValueError(f"{name or 'row'}: price and stock must be numbers")
+    if not name or not category or price <= 0 or stock < 0:
+        raise ValueError(f"{name or 'row'}: name, category and a positive price are required")
+    clean = lambda key: ",".join(p.strip() for p in str(row.get(key) or "").replace(";", ",").replace("|", ",").split(",") if p.strip())
+    values = {"name": name, "category": category, "price": price, "stock": stock,
+              "description": str(row.get("description") or "").strip()[:500], "sizes": clean("sizes"),
+              "colors": clean("colors"), "tags": str(row.get("tags") or "").strip()[:200]}
+    existing = db.query_one("SELECT id FROM products WHERE id = %s OR lower(name) = lower(%s)",
+                            (str(row.get("id") or "").strip().upper(), name))
+    if existing:
+        db.query("UPDATE products SET name=%(name)s, category=%(category)s, price=%(price)s, stock=%(stock)s, "
+                 "description=%(description)s, sizes=%(sizes)s, colors=%(colors)s, tags=%(tags)s, active=TRUE "
+                 "WHERE id=%(id)s", {**values, "id": existing["id"]})
+        return existing["id"], "updated"
+    last = db.query_one("SELECT COALESCE(MAX(substring(id from 2)::int), 0) AS n FROM products WHERE id ~ '^P[0-9]+$'")["n"]
+    new_id = f"P{last + 1:02d}"
+    db.query("INSERT INTO products (id, name, category, price, stock, description, sizes, colors, tags) VALUES "
+             "(%(id)s, %(name)s, %(category)s, %(price)s, %(stock)s, %(description)s, %(sizes)s, %(colors)s, %(tags)s)",
+             {**values, "id": new_id})
+    return new_id, "added"
+
+
+@app.post("/admin/products")
+async def admin_add_product(request: Request, x_admin_token: str | None = Header(None)) -> dict:
+    require_admin(x_admin_token)
+    try:
+        product_id, action = save_product(await request.json())
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"id": product_id, "result": action}
+
+
+@app.post("/admin/catalog")
+async def admin_upload_catalog(request: Request, x_admin_token: str | None = Header(None)) -> dict:
+    """Upload a catalogue as CSV text with the header name,category,price,stock,description,sizes,colors,tags.
+    Rows with an existing id or name are updated; new rows are added."""
+    require_admin(x_admin_token)
+    import csv
+    import io
+    text = str((await request.json()).get("csv") or "")
+    if not text.strip():
+        raise HTTPException(400, "Send {\"csv\": \"name,category,price,stock,...\"}")
+    added, updated, errors = [], [], []
+    for row in list(csv.DictReader(io.StringIO(text.strip())))[:500]:
+        try:
+            product_id, action = save_product({k.strip().lower(): v for k, v in row.items() if k})
+            (added if action == "added" else updated).append(product_id)
+        except ValueError as exc:
+            errors.append(str(exc))
+    return {"added": added, "updated": updated, "errors": errors}
+
+
 @app.get("/admin/customers")
 def admin_customers(x_admin_token: str | None = Header(None)) -> list[dict]:
     require_admin(x_admin_token)

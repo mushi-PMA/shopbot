@@ -88,7 +88,8 @@ def describe_cart(user_id: str) -> str:
 @tool
 def add_to_cart(product_id: str, runtime: ToolRuntime[ShopContext], quantity: int = 1, size: str = "",
                 color: str = "") -> str:
-    """Add a product to the customer's cart. size is required when the product has sizes."""
+    """Add a product to the customer's cart. size is required when the product has sizes; color is optional
+    (leave it empty if the customer did not choose one)."""
     p = db.query_one("SELECT * FROM products WHERE id = %s AND active", (product_id.strip().upper(),))
     if not p:
         return f"No product with id {product_id}."
@@ -129,18 +130,24 @@ def remove_from_cart(product_id: str, runtime: ToolRuntime[ShopContext]) -> str:
 
 # ---------------------------------------------------------------- orders (risky actions need a confirmation)
 
-YES = re.compile(r"^\s*(yes|yeah|yep|yup|y|sure|ok|okay|confirm(ed)?|go ahead|please do|do it|place it|"
-                 r"cancel it|proceed|haan|han|ji|jee|correct|that's right|thats right)\b", re.I)
+YES = re.compile(r"^\s*(y|ok|k)\s*[.!]?\s*$|\b(yes|yeah|yep|yup|sure|okay|confirm(ed|s)?|go ahead|please do|do it|"
+                 r"place it|cancel it|proceed|haan|han ji|ji haan|jee|correct|that'?s right|sounds good|absolutely)\b", re.I)
+NO = re.compile(r"\b(no|not|don'?t|do not|wait|stop|hold on|change|nahi|nahin)\b", re.I)
+
+
+def is_yes(text: str) -> bool:
+    return bool(YES.search(text)) and not NO.search(text)
 
 
 def confirmed_by_customer(runtime: ToolRuntime, tool_name: str) -> bool:
-    """True only if the customer's latest message says yes AND the turn before it asked for this confirmation.
-    The model cannot skip the question: the check reads the conversation, not a model argument."""
+    """True only if the customer's latest message says yes AND the step just before it asked for this
+    confirmation. The model cannot skip the question: the check reads the conversation, not a model argument."""
     messages = runtime.state["messages"]
-    last_human = max((i for i, m in enumerate(messages) if isinstance(m, HumanMessage)), default=-1)
-    if last_human < 0 or not YES.search(messages[last_human].text):
+    humans = [i for i, m in enumerate(messages) if isinstance(m, HumanMessage)]
+    if not humans or not is_yes(messages[humans[-1]].text):
         return False
-    asked = [m for m in messages[:last_human] if isinstance(m, ToolMessage) and m.name == tool_name]
+    previous_turn_start = humans[-2] if len(humans) > 1 else -1
+    asked = [m for m in messages[previous_turn_start + 1:humans[-1]] if isinstance(m, ToolMessage) and m.name == tool_name]
     return bool(asked) and asked[-1].text.startswith("CONFIRMATION NEEDED")
 
 
