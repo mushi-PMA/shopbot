@@ -66,8 +66,8 @@ POLICIES = {
     "warranty": "Warranty: electronics (earbuds, power bank) have a 6-month replacement warranty against manufacturing faults.",
     "sizes": "Sizes: kurtas and suits come in S (chest 36 in), M (38 in), L (40 in), XL (42 in). "
              "Footwear uses EU sizes; if between sizes, choose the larger one.",
-    "contact": "Contact: WhatsApp +92 300 1234567, email hello@malikbrothers.pk, 10 am to 8 pm, Monday to Saturday. "
-               "Shop: Malik Brothers, Liaquat Market, University Road, Sargodha.",
+    "contact": "Contact: ask in this chat any time, or visit the shop in Sargodha, Monday to Saturday, 10 am to 8 pm. "
+               "For an existing order, the shop calls the phone number given with the order.",
     "coupons": "Coupons: WELCOME10 gives 10% off a customer's first order. FREESHIP gives free shipping on any order. "
                "Only one coupon per order.",
 }
