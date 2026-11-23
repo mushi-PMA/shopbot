@@ -15,7 +15,7 @@ dashboard: orders, stock, customers, conversations and what the agent costs.
 | Website (customer page) | <!-- web-url -->https://malikbrothers-shopbot.vercel.app<!-- /web-url --> |
 | Admin dashboard | <!-- admin-url -->https://malikbrothers-shopbot.vercel.app/admin<!-- /admin-url --> |
 | Agent API base URL | <!-- api-url -->https://malikbrothers-shopbot-api.vercel.app<!-- /api-url --> |
-| Demo video (2 to 3 min) | <!-- video-url -->see the submission<!-- /video-url --> |
+| Demo video (2 to 3 min) | <!-- video-url -->[docs/demo.mp4](docs/demo.mp4) (2 min 40 s)<!-- /video-url --> |
 
 ## How money is made
 
@@ -41,6 +41,8 @@ flowchart LR
     M <-->|checkpointer<br/>thread = user_id::thread_id| CP[(short-term memory<br/>LangGraph checkpoints)]
     M <-->|store<br/>namespace customers/user_id| LT[(long-term memory<br/>LangGraph store)]
 ```
+
+![LangGraph design](docs/langgraph.png)
 
 The agent is built with LangGraph (LangChain v1 `create_agent` plus middleware, the same pattern as the workshop
 repo). The graph has three nodes: `safety_guard` (a `before_model` hook that runs in code), the `model` node (the
