@@ -1,0 +1,7 @@
+.env
+.env.*
+tests
+scripts
+bench
+__pycache__
+.pytest_cache
