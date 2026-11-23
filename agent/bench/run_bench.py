@@ -28,7 +28,8 @@ def check(turn: dict, reply: dict) -> list[str]:
 def main() -> None:
     base = sys.argv[1].rstrip("/")
     runs = int(sys.argv[sys.argv.index("--runs") + 1]) if "--runs" in sys.argv else 1
-    cases = json.loads((ROOT / "tests.json").read_text(encoding="utf-8"))["cases"]
+    data = json.loads((ROOT / "tests.json").read_text(encoding="utf-8"))
+    cases = data["cases"] + data.get("attack_tests", [])
     client = httpx.Client(timeout=90)
     rows, latencies, tokens_in, tokens_out = [], [], 0, 0
     for run in range(runs):
@@ -50,6 +51,8 @@ def main() -> None:
     turns = len(latencies)
     summary = {
         "base_url": base, "runs": runs, "cases": len(rows), "passed": sum(r["passed"] for r in rows),
+        "own_cases_passed": f"{sum(r['passed'] for r in rows if r['category'] != 'attack')}/{sum(r['category'] != 'attack' for r in rows)}",
+        "attack_tests_passed": f"{sum(r['passed'] for r in rows if r['category'] == 'attack')}/{sum(r['category'] == 'attack' for r in rows)}",
         "turns": turns, "latency_p50_s": round(statistics.median(latencies), 2),
         "latency_p95_s": round(sorted(latencies)[max(0, int(0.95 * turns) - 1)], 2),
         "tokens_in_per_turn": round(tokens_in / turns), "tokens_out_per_turn": round(tokens_out / turns),

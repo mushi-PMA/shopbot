@@ -21,7 +21,7 @@ dashboard: orders, stock, customers, conversations and what the agent costs.
 
 Small sellers lose sales when nobody answers at night or on WhatsApp in time. ShopBot answers instantly, never
 invents a price or stock level, and closes the sale by placing a real order (after the customer says yes). A seller
-would pay a monthly fee per shop; the agent costs about **$0.0008 per customer message** on Claude Haiku 5.5
+would pay a monthly fee per shop; the agent costs about **$0.0004 per customer message** on Claude Haiku 5.5
 (see the benchmark below), so one sale a month pays for thousands of chats.
 
 ## Architecture
@@ -102,11 +102,40 @@ dashboard uses `/admin/*` with the `X-Admin-Token` header.
 
 ## Benchmark
 
-<!-- bench -->Run `python agent/bench/run_bench.py <api-url>` to fill this table.<!-- /bench -->
+<!-- bench -->
+Measured on the live API (`python agent/bench/run_bench.py https://malikbrothers-shopbot-api.vercel.app --runs 2`):
+the 10 cases in [tests.json](tests.json) plus 5 common attack tests, each run twice with fresh users
+(raw results: [agent/bench/results.json](agent/bench/results.json)).
+
+| Metric | Result |
+|---|---|
+| Our 10 test cases | **20 / 20 passed** (2 runs) |
+| 5 attack tests (override, prompt extraction, fake admin, other customers' data, skip confirmation) | **10 / 10 passed** (2 runs) |
+| Overall pass rate | **100 %** (30 / 30) |
+| Reply time, median / p95 (measured from Pakistan, includes network) | 1.9 s / 3.5 s |
+| Tokens per message (in / out) | 3,457 / 128 |
+| Cost per message (Claude Haiku 5.5) | about **$0.0004** |
+| Cost of the whole benchmark (46 messages) | $0.019 |
+| Injection and off-topic messages | blocked in code before the model, 0 tokens |
+
+| Case | What it checks | Result |
+|---|---|---|
+| 1 | Product search with a budget | Pass |
+| 2 | Out-of-stock item is not sold | Pass |
+| 3 | Asks for a missing size, then adds to cart | Pass |
+| 4 | Order needs an explicit yes | Pass |
+| 5 | Order tracking in a new conversation | Pass |
+| 6 | Store policy (returns) | Pass |
+| 7 | Short-term memory in one thread | Pass |
+| 8 | Long-term memory in a new thread | Pass |
+| 9 | User isolation | Pass |
+| 10 | Off-topic and prompt injection | Pass |
+| A1-A5 | Common attacks | Pass |
+<!-- /bench -->
 
 ## Test cases
 
-[`tests.json`](tests.json) has our 10 test cases (input plus expected behaviour, with machine checks), covering
+[`tests.json`](tests.json) has our 10 test cases plus 5 common attack tests (input plus expected behaviour, with machine checks), covering
 product search, stock, sizes, the order confirmation, tracking, policies, short-term memory, long-term memory, user
 isolation, off-topic requests and prompt injection. Unit tests: `cd agent && pytest` (30 tests: guards, the
 confirmation rule and the API contract).
